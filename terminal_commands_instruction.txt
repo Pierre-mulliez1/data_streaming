@@ -1,0 +1,81 @@
+
+
+
+Terminal
+those function to be performed in order
+prerquisite: name your VM folder: tfl_bikes
+
+start/initiate modules
+sudo service mariadb start 
+sudo service kafka start 
+sudo service superset start
+cd tfl_bikes/
+cp log4j.properties /opt/spark3/conf/
+mariadb -u osbdet -p < bikes-db.sql
+
+
+PRODUCER
+TOPIC -- documentation you don't have to do those 
+ kafka-topics.sh --create --bootstrap-server localhost:9092 \
+ --replication-factor 1 --partitions 1 \
+--topic bikes
+CHECK TOPIC
+kafka-topics.sh --list --bootstrap-server localhost:9092
+DELETE TOPIC 
+ kafka-topics.sh --delete --bootstrap-server localhost:9092 \
+ --topic mytopic
+
+TEST
+execute functions
+python3 bikepoint_producer.py info_bikepoint_locations  -b localhost:9092 -t bikes
+python3 bikepoint_producer.py info_bikepoint -bid BikePoint_670  -b localhost:9092 -t bikes
+
+Cron
+python3 bikepoint_producer.py info_bikepoint_locations  -b localhost:9092 -t bikes >> /home/osbdet/bikepoint_output.log
+-> inspect content of the log file
+cat /home/osbdet/bikepoint_output.log
+crontab -e
+-> Logic applied every 2 minutes (change the 2 by a start [*] for every minutes)
+2 * * * * /usr/bin/python3 /home/osbdet/notebooks/tfl_bikes/bikepoint_producer.py info_bikepoint_locations -b localhost:9092 -t bikes>> /home/osbdet/bikepoint_output.log
+crontab -l
+
+
+
+CONSUMER 
+test (documentation - do not use) -> python3 kafka_consumer_v2.py bikes IE 60 
+
+JSON to CSV to mariadb headhakes ->
+1. Old consumer -> run this 
+$SPARK_HOME/bin/spark-submit --master local  --packages "org.apache.spark:spark-sql-kafka-0-10_2.12:3.1.1"  --jars "/usr/share/java/mariadb-java-client.jar"  streaming_consumer_join_serving.py streaming_consumer_config.ini
+2. New consumer --- For documentation on presentation -> do not use 
+$SPARK_HOME/bin/spark-submit --master local  --packages "org.apache.spark:spark-sql-kafka-0-10_2.12:3.1.1"  --jars "/usr/share/java/mariadb-java-client.jar" kafka_consumer_v2.py bikes IE 60 streaming_consumer_config.ini
+
+
+FINAL - test mariadb
+mariadb -u osbdet -p
+use bikes 
+select * from Bikepoint;
+ctrl C
+
+SUPERSET 
+mysql://_:_$@localhost:3306/bikes
+
+
+stop modules
+stop the cron tab (or you will reach a limit ingesting the data source): 
+	1. TYpe the cron command: crontab -e
+	2. Erase the cron function 
+	3. save and quit 
+sudo service mariadb stop
+sudo service kafka stop
+sudo service superset stop
+
+
+ 
+
+
+
+
+
+
+
